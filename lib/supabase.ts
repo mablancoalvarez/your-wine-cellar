@@ -1,8 +1,41 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import 'react-native-url-polyfill/auto';
 
+// Storage adaptativo según la plataforma
+let storageAdapter: any = null;
+
+if (Platform.OS === 'web') {
+  // Para web, usar localStorage
+  if (typeof window !== 'undefined') {
+    storageAdapter = {
+      getItem: (key: string) => {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return Promise.resolve(window.localStorage.getItem(key));
+        }
+        return Promise.resolve(null);
+      },
+      setItem: (key: string, value: string) => {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return Promise.resolve(window.localStorage.setItem(key, value));
+        }
+        return Promise.resolve();
+      },
+      removeItem: (key: string) => {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return Promise.resolve(window.localStorage.removeItem(key));
+        }
+        return Promise.resolve();
+      },
+    };
+  }
+} else {
+  // Para iOS/Android, usar AsyncStorage
+  const AsyncStorage =
+    require('@react-native-async-storage/async-storage').default;
+  storageAdapter = AsyncStorage;
+}
 // Obtener las variables de entorno
 const supabaseUrl =
   Constants.expoConfig?.extra?.supabaseUrl ||
@@ -24,10 +57,10 @@ if (isSupabaseConfigured) {
   try {
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: AsyncStorage,
+        storage: storageAdapter,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: Platform.OS === 'web',
       },
     });
   } catch (error) {

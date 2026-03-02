@@ -1,18 +1,6 @@
-import { useRouter } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { Redirect } from 'expo-router';
 
 export default function Index() {
-  const router = useRouter();
-
-  return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}
-    >
-      <ActivityIndicator size="large" />
-    </View>
-  );
+  // Redirigir al login al cargar la app
+  return <Redirect href="/login" />;
 }

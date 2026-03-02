@@ -1,0 +1,49 @@
+{
+  "cli": {
+    "version": ">= 3.8.0"
+  },
+  "build": {
+    /**
+     * Perfil de DESARROLLO (Development)
+     * - Destinado a pruebas rápidas en tu dispositivo (usando Expo Go o un cliente de desarrollo).
+     * - Es rápido porque utiliza credenciales y configuraciones sencillas.
+     */
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    /**
+     * Perfil de PRUEBA (Preview)
+     * - Destinado a QA o a compartir la app internamente antes del lanzamiento.
+     * - Es un build de "producción" pero no se envía a las tiendas automáticamente.
+     */
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    }
+    /**
+     * Perfil de PRODUCCIÓN (Production)
+     * - Destinado al lanzamiento final en Google Play Store o Apple App Store.
+     * - Usa el keystore (clave de firma) definitivo, que es la que se vincula con Google Cloud.
+     */
+  },
+  "submit": {
+    /**
+     * Configuración para EAS Submit (Opcional)
+     * Define cómo se debe subir el artefacto generado a Google Play/App Store.
+     */
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json"
+      }
+    }
+  }
+}

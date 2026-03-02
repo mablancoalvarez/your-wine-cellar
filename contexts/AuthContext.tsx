@@ -1,6 +1,6 @@
 import { Session, User } from '@supabase/supabase-js';
-import React, { createContext, useState } from 'react';
-// import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 interface AuthContextType {
   session: Session | null;
@@ -16,46 +16,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false); // Cambiado a false para que no quede cargando
 
-  // useEffect(() => {
-  //   // Si no hay configuración, no intentar obtener sesión
-  //   if (!isSupabaseConfigured) {
-  //     setLoading(false);
-  //     return;
-  //   }
+  useEffect(() => {
+    // Si no hay configuración, no intentar obtener sesión
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
 
-  //   // Obtener la sesión inicial
-  //   supabase.auth.getSession().then(({ data: { session } }) => {
-  //     setSession(session);
-  //     setUser(session?.user ?? null);
-  //     setLoading(false);
-  //   });
+    // Obtener la sesión inicial
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
-  //   // Escuchar cambios en la autenticación
-  //   const {
-  //     data: { subscription },
-  //   } = supabase.auth.onAuthStateChange((_event, session) => {
-  //     setSession(session);
-  //     setUser(session?.user ?? null);
-  //     setLoading(false);
-  //   });
+    // Escuchar cambios en la autenticación
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
-  //   return () => subscription.unsubscribe();
-  // }, []);
+    return () => subscription.unsubscribe();
+  }, []);
 
   const signOut = async () => {
-    // if (!isSupabaseConfigured) {
-    //   return;
-    // }
-    // try {
-    //   setLoading(true);
-    //   const { error } = await supabase.auth.signOut();
-    //   if (error) throw error;
-    // } catch (error) {
-    //   console.error('Error al cerrar sesión:', error);
-    //   throw error;
-    // } finally {
-    //   setLoading(false);
-    // }
+    if (!isSupabaseConfigured) {
+      return;
+    }
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -72,10 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// export function useAuth() {
-//   const context = useContext(AuthContext);
-//   if (context === undefined) {
-//     throw new Error('useAuth debe ser usado dentro de un AuthProvider');
-//   }
-//   return context;
-// }
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
+  }
+  return context;
+}
