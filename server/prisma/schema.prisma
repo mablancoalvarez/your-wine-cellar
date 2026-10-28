@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String?
+  avatarUrl     String?        @map("avatar_url")
+  googleSub     String         @unique @map("google_sub")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  cellars       Cellar[]
+  wines         Wine[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Cellar {
+  id        String       @id @default(uuid())
+  userId    String       @map("user_id")
+  name      String
+  kind      String
+  createdAt DateTime     @default(now()) @map("created_at")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wines     CellarWine[]
+
+  @@index([userId])
+  @@map("cellars")
+}
+
+model Wine {
+  id        String       @id @default(uuid())
+  userId    String       @map("user_id")
+  name      String
+  winery    String
+  country   String
+  year      Int
+  grape     String
+  rating    Int          @default(0)
+  notes     String       @default("")
+  vintage   String       @default("")
+  createdAt DateTime     @default(now()) @map("created_at")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cellars   CellarWine[]
+
+  @@index([userId])
+  @@map("wines")
+}
+
+model CellarWine {
+  cellarId  String   @map("cellar_id")
+  wineId    String   @map("wine_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  cellar    Cellar   @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  wine      Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
+
+  @@id([cellarId, wineId])
+  @@index([wineId])
+  @@map("cellar_wines")
+}

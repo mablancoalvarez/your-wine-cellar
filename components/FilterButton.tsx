@@ -1,3 +1,4 @@
+import { colors } from '@/lib/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import {
   StyleSheet,
@@ -11,11 +12,18 @@ interface FilterButtonProps extends TouchableOpacityProps {
   value?: string;
 }
 
-export function FilterButton({ label, value, ...props }: FilterButtonProps) {
+export function FilterButton({ label, value, style, ...props }: FilterButtonProps) {
   return (
-    <TouchableOpacity style={styles.button} activeOpacity={0.7} {...props}>
-      <Text style={styles.label}>{value || label}</Text>
-      <MaterialIcons name="keyboard-arrow-down" size={20} color="#666" />
+    <TouchableOpacity
+      style={[styles.button, style]}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      {...props}
+    >
+      <Text style={styles.label} numberOfLines={1}>
+        {value || label}
+      </Text>
+      <MaterialIcons name="keyboard-arrow-down" size={20} color={colors.muted} />
     </TouchableOpacity>
   );
 }
@@ -25,16 +33,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
+    gap: 8,
+    height: 48,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 12,
+    borderRadius: 14,
+    backgroundColor: colors.sand,
     flex: 1,
   },
   label: {
-    fontSize: 14,
-    color: '#1A1A1A',
+    flex: 1,
+    fontSize: 14.5,
     fontWeight: '500',
+    color: colors.text,
   },
 });

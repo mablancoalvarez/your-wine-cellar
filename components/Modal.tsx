@@ -1,3 +1,4 @@
+import { colors } from '@/lib/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import {
   Platform,
@@ -30,67 +31,51 @@ export function Modal({
   visible,
   ...props
 }: ModalProps) {
+  const isFull = size === 'full';
+
+  const content = (
+    <>
+      {(title || showCloseButton) && (
+        <View style={[styles.header, isFull && styles.headerFull]}>
+          {title ? <Text style={styles.title}>{title}</Text> : null}
+          {showCloseButton ? (
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+            >
+              <MaterialIcons name="close" size={24} color={colors.muted} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )}
+
+      <View style={isFull ? styles.bodyFull : styles.body}>{children}</View>
+
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </>
+  );
+
+  const contentStyle = [styles.content, isFull ? styles.contentFull : styles[`${size}Size`]];
+
   return (
     <RNModal
       visible={visible}
-      transparent
+      transparent={!isFull}
       animationType="fade"
       onRequestClose={onClose}
       {...props}
     >
-      {size === 'full' ? (
+      {isFull ? (
         <SafeAreaView style={styles.overlayFull}>
-          <View style={[styles.contentFull, styles[`${size}Size`]]}>
-            {/* Header */}
-            {(title || showCloseButton) && (
-              <View style={styles.headerFull}>
-                {title && <Text style={styles.title}>{title}</Text>}
-                {showCloseButton && (
-                  <TouchableOpacity
-                    onPress={onClose}
-                    style={styles.closeButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <MaterialIcons name="close" size={24} color="#666" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {/* Body */}
-            <View style={styles.bodyFull}>{children}</View>
-
-            {/* Footer */}
-            {footer && <View style={styles.footer}>{footer}</View>}
-          </View>
+          <View style={contentStyle}>{content}</View>
         </SafeAreaView>
       ) : (
         <Pressable style={styles.overlay} onPress={onClose}>
-          <Pressable
-            style={[styles.content, styles[`${size}Size`]]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            {(title || showCloseButton) && (
-              <View style={styles.header}>
-                {title && <Text style={styles.title}>{title}</Text>}
-                {showCloseButton && (
-                  <TouchableOpacity
-                    onPress={onClose}
-                    style={styles.closeButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <MaterialIcons name="close" size={24} color="#666" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {/* Body */}
-            <View style={styles.body}>{children}</View>
-
-            {/* Footer */}
-            {footer && <View style={styles.footer}>{footer}</View>}
+          <Pressable style={contentStyle} onPress={(event) => event.stopPropagation()}>
+            {content}
           </Pressable>
         </Pressable>
       )}
@@ -108,11 +93,11 @@ const styles = StyleSheet.create({
   },
   overlayFull: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     padding: 0,
   },
   content: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 12,
     width: '100%',
     maxHeight: '90%',
@@ -161,22 +146,15 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.hairline,
   },
   headerFull: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: colors.ink,
     flex: 1,
   },
   closeButton: {
@@ -197,6 +175,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.hairline,
   },
 });

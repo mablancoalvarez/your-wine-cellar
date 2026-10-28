@@ -1,159 +1,123 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useCellarWines } from '@/hooks/useCellarWines';
+import { getErrorMessage } from '@/lib/errors';
+import { colors, fonts } from '@/lib/theme';
+import { filterWines, getFilterOptions, type WineFilterKind } from '@/lib/wine-filters';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  SafeAreaView,
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  AddWineForm,
+  AppHeader,
   Avatar,
+  BottomTabBar,
   Button,
   DropdownMenu,
   FilterButton,
   Modal,
   SearchBar,
+  TabId,
   WineCard,
+  WineGlassIcon,
 } from '../components';
-import { supabase } from '../lib/supabase';
-
-// Datos fake de vinos
-const fakeWines = [
-  {
-    id: '1',
-    name: 'Reserva Especial',
-    winery: 'Bodegas Torres',
-    country: 'España',
-    grape: 'Tempranillo',
-    year: 2019,
-    rating: 4,
-    description: 'Notas de frutos rojos, taninos suaves',
-  },
-  {
-    id: '2',
-    name: 'Château Margaux',
-    winery: 'Château Margaux',
-    country: 'Francia',
-    grape: 'Cabernet Sauvignon',
-    year: 2018,
-    rating: 5,
-    description: 'Elegante, complejo, con notas de cassis',
-  },
-  {
-    id: '3',
-    name: 'Chianti Classico',
-    winery: 'Antinori',
-    country: 'Italia',
-    grape: 'Sangiovese',
-    year: 2020,
-    rating: 4,
-    description: 'Afrutado, equilibrado, perfecto con pasta',
-  },
-];
+import { confirmDestructive, showAlert } from '../lib/alert';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { signOut, user } = useAuth();
+  const { loading, signOut, user } = useAuth();
+  const { cellar, wines, error: listError } = useCellarWines(Boolean(user));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<string | undefined>();
   const [selectedGrape, setSelectedGrape] = useState<string | undefined>();
-  const [openModal, setOpenModal] = useState<boolean>(false);
+  const [filterKind, setFilterKind] = useState<WineFilterKind | null>(null);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [loading, router, user]);
 
   const handleAddWine = () => {
-    setOpenModal(true);
+    router.push('/add-wine');
   };
 
-  const handleSignOut = async () => {
-    Alert.alert(
+  const handleSignOut = () => {
+    confirmDestructive(
       'Cerrar Sesión',
       '¿Estás seguro de que quieres cerrar sesión?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-              router.replace('/login');
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'No se pudo cerrar sesión');
-            }
-          },
-        },
-      ],
+      'Cerrar Sesión',
+      async () => {
+        try {
+          await signOut();
+          router.replace('/login');
+        } catch (error) {
+          showAlert('Error', getErrorMessage(error, 'No se pudo cerrar sesión'));
+        }
+      },
     );
   };
 
-  const handleSaveWine = async (wineData: any) => {
-    console.log('Guardar vino:', wineData);
-    // TODO: Implementar guardado en Supabase
-    setOpenModal(false);
-    const { data, error } = await supabase
-      .from('wines')
-      .insert(wineData)
-      .select();
+  const handleWinePress = () => {
+    // TODO: navigate to the detail screen once it exists.
+  };
 
-    if (error) {
-      console.error('Error al guardar vino:', error);
+  const handleTabPress = (tab: TabId) => {
+    if (tab === 'cava') return;
+    showAlert('Próximamente', 'Esta sección estará disponible pronto.');
+  };
+
+  const countries = useMemo(() => getFilterOptions(wines, 'country'), [wines]);
+  const grapes = useMemo(() => getFilterOptions(wines, 'grape'), [wines]);
+
+  const visibleWines = useMemo(
+    () =>
+      filterWines(wines, {
+        query: searchQuery,
+        country: selectedCountry,
+        grape: selectedGrape,
+      }),
+    [wines, searchQuery, selectedCountry, selectedGrape],
+  );
+
+  const filterOptions = filterKind === 'grape' ? grapes : countries;
+  const activeFilter = filterKind === 'grape' ? selectedGrape : selectedCountry;
+  const allFilterLabel = filterKind === 'grape' ? 'Todas las uvas' : 'Todos los países';
+
+  const applyFilter = (value?: string) => {
+    if (filterKind === 'grape') {
+      setSelectedGrape(value);
+    } else {
+      setSelectedCountry(value);
     }
+    setFilterKind(null);
   };
 
-  const handleCancelAddWine = () => {
-    setOpenModal(false);
-  };
-
-  const handleWinePress = (wineId: string) => {
-    console.log('Ver detalles del vino:', wineId);
-    setOpenModal(true);
-    // TODO: Implementar navegación a detalles del vino
-  };
+  if (loading || !user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color={colors.wine} />
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <MaterialIcons name="wine-bar" size={32} color="#8B4513" />
-            <View style={styles.headerText}>
-              <Text style={styles.title}>Mi Bodega</Text>
-              <Text style={styles.subtitle}>
-                {fakeWines.length} vinos en tu colección
-              </Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
+    <View style={styles.root}>
+      <StatusBar style="dark" />
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <AppHeader
+          right={
             <DropdownMenu
               trigger={
-                <View style={styles.profileButton}>
-                  <Avatar
-                    imageUrl={
-                      user?.user_metadata?.avatar_url ||
-                      user?.user_metadata?.picture ||
-                      user?.user_metadata?.avatar
-                    }
-                    size={36}
-                  />
-                  <MaterialIcons
-                    name="keyboard-arrow-down"
-                    size={20}
-                    color="#1A1A1A"
-                    style={styles.arrowIcon}
-                  />
-                </View>
+                <Avatar imageUrl={user.avatarUrl} name={user.name} size={40} />
               }
               items={[
                 {
@@ -164,140 +128,307 @@ export default function HomeScreen() {
                 },
               ]}
             />
+          }
+        />
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Active cellar */}
+          <View style={styles.cellarRow}>
+            <View style={styles.cellarEmblem}>
+              <WineGlassIcon size={26} color={colors.wine} strokeWidth={1.4} />
+            </View>
+
+            <View style={styles.cellarInfo}>
+              <View style={styles.cellarNameRow}>
+                <Text style={styles.cellarName}>{cellar?.name ?? 'Mi Bodega'}</Text>
+                <MaterialIcons name="keyboard-arrow-down" size={20} color={colors.wine} />
+              </View>
+              <View style={styles.cellarCountRow}>
+                <View style={styles.cellarDot} />
+                <Text style={styles.cellarCount} numberOfLines={1}>
+                  {listError ?? `${wines.length} vinos en tu colección privada`}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.filterCircle}
+              onPress={() => setFilterKind('country')}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Filtrar vinos"
+            >
+              <MaterialIcons name="tune" size={22} color={colors.wine} />
+            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Botón Añadir Vino */}
-        <Button
-          title="Añadir Vino"
-          icon="add"
-          iconPosition="left"
-          fullWidth
-          onPress={handleAddWine}
-          style={styles.addButton}
-        />
-
-        {/* Barra de búsqueda */}
-        <SearchBar
-          placeholder="Buscar por nombre o bodega..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-
-        {/* Filtros */}
-        <View style={styles.filtersContainer}>
-          <FilterButton
-            label="Todos los países"
-            value={selectedCountry}
-            onPress={() => {
-              // TODO: Implementar modal de selección de país
-              console.log('Seleccionar país');
-            }}
+          {/* Add wine */}
+          <Button
+            title="Añadir Vino"
+            icon="add"
+            fullWidth
+            onPress={handleAddWine}
+            textStyle={styles.addButtonText}
+            style={styles.addButton}
           />
-          <FilterButton
-            label="Todas las uvas"
-            value={selectedGrape}
-            onPress={() => {
-              // TODO: Implementar modal de selección de uva
-              console.log('Seleccionar uva');
-            }}
-          />
-        </View>
 
-        {/* Lista de vinos */}
-        <View style={styles.winesList}>
-          {fakeWines.map((wine) => (
-            <WineCard
-              key={wine.id}
-              name={wine.name}
-              winery={wine.winery}
-              country={wine.country}
-              grape={wine.grape}
-              year={wine.year}
-              rating={wine.rating}
-              description={wine.description}
-              onPress={() => handleWinePress(wine.id)}
+          {/* Search */}
+          <SearchBar
+            placeholder="Buscar por nombre o bodega..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            containerStyle={styles.searchBar}
+          />
+
+          {/* Filters */}
+          <View style={styles.filtersRow}>
+            <FilterButton
+              label="Todos los países"
+              value={selectedCountry}
+              onPress={() => setFilterKind('country')}
             />
-          ))}
-        </View>
+            <FilterButton
+              label="Todas las uvas"
+              value={selectedGrape}
+              onPress={() => setFilterKind('grape')}
+            />
+          </View>
+
+          {/* Wine list */}
+          <View style={styles.winesList}>
+            {visibleWines.map((wine) => (
+              <WineCard
+                key={wine.id}
+                name={wine.name}
+                winery={wine.winery}
+                country={wine.country}
+                grape={wine.grape}
+                year={wine.year}
+                rating={wine.rating}
+                description={wine.notes}
+                onPress={handleWinePress}
+              />
+            ))}
+            {visibleWines.length === 0 && (
+              <Text style={styles.emptyText}>
+                {wines.length === 0
+                  ? 'Aún no has añadido ningún vino.'
+                  : 'No hay vinos que coincidan con la búsqueda o los filtros.'}
+              </Text>
+            )}
+          </View>
+
+          {/* Tip */}
+          <View style={styles.tipCard}>
+            <View style={styles.tipIcon}>
+              <MaterialIcons name="event-available" size={26} color={colors.wine} />
+            </View>
+            <View style={styles.tipContent}>
+              <Text style={styles.tipTitle}>Consejo de Sumiller</Text>
+              <Text style={styles.tipText}>
+                Mantén tu reserva de 2026 a una temperatura constante entre 12°C y 15°C.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        <BottomTabBar active="cava" onPress={handleTabPress} />
 
         <Modal
-          visible={openModal}
-          title="Añadir Nuevo Vino"
-          onClose={handleCancelAddWine}
-          size="full"
+          visible={filterKind !== null}
+          title={filterKind === 'grape' ? 'Filtrar por uva' : 'Filtrar por país'}
+          onClose={() => setFilterKind(null)}
+          size="small"
           footer={null}
         >
-          <AddWineForm
-            onSubmit={handleSaveWine}
-            onCancel={handleCancelAddWine}
-          />
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <TouchableOpacity
+              style={[styles.filterOption, !activeFilter && styles.filterOptionSelected]}
+              onPress={() => applyFilter(undefined)}
+            >
+              <Text style={styles.filterOptionText}>{allFilterLabel}</Text>
+              {!activeFilter && <MaterialIcons name="check" size={20} color={colors.wine} />}
+            </TouchableOpacity>
+
+            {filterOptions.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.filterOption,
+                  activeFilter === option && styles.filterOptionSelected,
+                ]}
+                onPress={() => applyFilter(option)}
+              >
+                <Text style={styles.filterOptionText}>{option}</Text>
+                {activeFilter === option && (
+                  <MaterialIcons name="check" size={20} color={colors.wine} />
+                )}
+              </TouchableOpacity>
+            ))}
+
+            {filterOptions.length === 0 && (
+              <Text style={styles.filterEmpty}>No hay opciones disponibles todavía.</Text>
+            )}
+          </ScrollView>
         </Modal>
-      </ScrollView>
-    </SafeAreaView>
+
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.paper,
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.paper,
   },
-  scrollView: {
+  scroll: {
     flex: 1,
   },
-  container: {
-    flex: 1,
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 32,
   },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 24,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerLeft: {
+  cellarRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
+  },
+  cellarEmblem: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.sand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cellarInfo: {
     flex: 1,
   },
-  headerRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
-  },
-  headerText: {
-    marginLeft: 12,
-  },
-  profileButton: {
+  cellarNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    gap: 4,
   },
-  arrowIcon: {
-    marginLeft: 8,
+  cellarName: {
+    fontFamily: fonts.serifSemiBold,
+    fontSize: 26,
+    color: colors.wine,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-    marginBottom: 4,
+  cellarCountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 3,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
+  cellarDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.star,
+  },
+  cellarCount: {
+    flex: 1,
+    fontSize: 14.5,
+    color: colors.muted,
+  },
+  filterCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: colors.sand,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addButton: {
-    marginBottom: 20,
+    marginTop: 26,
+    height: 58,
   },
-  filtersContainer: {
+  addButtonText: {
+    fontFamily: fonts.serifMedium,
+    fontSize: 17,
+  },
+  searchBar: {
+    marginTop: 28,
+  },
+  filtersRow: {
     flexDirection: 'row',
-    marginBottom: 20,
+    gap: 12,
+    marginTop: 18,
   },
   winesList: {
+    marginTop: 28,
+  },
+  emptyText: {
     marginTop: 8,
+    fontSize: 14.5,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  tipCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 18,
+    borderRadius: 18,
+    backgroundColor: colors.sand,
+  },
+  tipIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipContent: {
+    flex: 1,
+  },
+  tipTitle: {
+    fontFamily: fonts.serifSemiBold,
+    fontSize: 17,
+    color: colors.wine,
+    marginBottom: 3,
+  },
+  tipText: {
+    fontSize: 14.5,
+    lineHeight: 20,
+    color: colors.muted,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paper,
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  filterOptionSelected: {
+    backgroundColor: colors.sand,
+  },
+  filterOptionText: {
+    fontSize: 15,
+    color: colors.text,
+  },
+  filterEmpty: {
+    paddingVertical: 12,
+    fontSize: 14,
+    color: colors.muted,
   },
 });

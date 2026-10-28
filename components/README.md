@@ -23,10 +23,10 @@ Botón reutilizable con múltiples variantes y tamaños.
 ```tsx
 import { Button } from '../components';
 
-// Botón primario
+// Primary button
 <Button title="Guardar" onPress={handleSave} />
 
-// Botón con icono
+// Button with icon
 <Button
   title="Agregar Vino"
   icon="add"
@@ -34,14 +34,14 @@ import { Button } from '../components';
   onPress={handleAdd}
 />
 
-// Botón de carga
+// Loading button
 <Button
   title="Enviar"
   loading={isSubmitting}
   onPress={handleSubmit}
 />
 
-// Botón outline
+// Outline button
 <Button
   title="Cancelar"
   variant="outline"

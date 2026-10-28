@@ -1,3 +1,4 @@
+import { colors } from '@/lib/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -32,7 +33,13 @@ export function DropdownMenu({ trigger, items }: DropdownMenuProps) {
 
   return (
     <>
-      <Pressable onPress={() => setVisible(true)}>{trigger}</Pressable>
+      <Pressable
+        onPress={() => setVisible(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir menú"
+      >
+        {trigger}
+      </Pressable>
       <Modal
         visible={visible}
         transparent
@@ -43,27 +50,20 @@ export function DropdownMenu({ trigger, items }: DropdownMenuProps) {
           <View style={styles.menu}>
             {items.map((item, index) => (
               <TouchableOpacity
-                key={index}
-                style={[
-                  styles.menuItem,
-                  index === items.length - 1 && styles.menuItemLast,
-                ]}
+                key={item.label}
+                style={[styles.menuItem, index === items.length - 1 && styles.menuItemLast]}
                 onPress={() => handleItemPress(item.onPress)}
+                accessibilityRole="button"
               >
-                {item.icon && (
+                {item.icon ? (
                   <MaterialIcons
                     name={item.icon}
                     size={20}
-                    color={item.danger ? '#dc3545' : '#1A1A1A'}
+                    color={item.danger ? colors.danger : colors.ink}
                     style={styles.icon}
                   />
-                )}
-                <Text
-                  style={[
-                    styles.menuItemText,
-                    item.danger && styles.menuItemTextDanger,
-                  ]}
-                >
+                ) : null}
+                <Text style={[styles.menuItemText, item.danger && styles.menuItemTextDanger]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     right: 20,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 8,
     minWidth: 180,
     ...Platform.select({
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.hairline,
   },
   menuItemLast: {
     borderBottomWidth: 0,
@@ -115,9 +115,9 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: '#1A1A1A',
+    color: colors.ink,
   },
   menuItemTextDanger: {
-    color: '#dc3545',
+    color: colors.danger,
   },
 });

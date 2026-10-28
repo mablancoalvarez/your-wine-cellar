@@ -1,18 +1,38 @@
+import { colors } from '@/lib/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { StyleSheet, TextInput, TextInputProps, View } from 'react-native';
+import {
+  StyleProp,
+  StyleSheet,
+  TextInput,
+  TextInputProps,
+  View,
+  ViewStyle,
+} from 'react-native';
 
 interface SearchBarProps extends TextInputProps {
   placeholder?: string;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
-export function SearchBar({ placeholder = 'Buscar...', ...props }: SearchBarProps) {
+export function SearchBar({
+  placeholder = 'Buscar...',
+  containerStyle,
+  ...props
+}: SearchBarProps) {
   return (
-    <View style={styles.container}>
-      <MaterialIcons name="search" size={20} color="#999" style={styles.icon} />
+    <View style={[styles.container, containerStyle]}>
+      <View style={styles.iconBox}>
+        <MaterialIcons
+          name="search"
+          size={21}
+          color={colors.muted}
+          style={styles.icon}
+        />
+      </View>
       <TextInput
         style={styles.input}
         placeholder={placeholder}
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.muted}
         {...props}
       />
     </View>
@@ -23,21 +43,33 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
+    gap: 12,
+    minHeight: 54,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  icon: {
-    marginRight: 12,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    shadowColor: colors.wine,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 1,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: colors.text,
+    padding: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  iconBox: {
+    width: 21,
+    height: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: {
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });
-
-
-

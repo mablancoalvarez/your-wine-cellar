@@ -1,27 +1,39 @@
 {
   "cli": {
-    "version": ">= 3.8.0"
+    "version": ">= 3.8.0",
+    "appVersionSource": "local"
   },
   "build": {
     /**
-     * Perfil de DESARROLLO (Development)
-     * - Destinado a pruebas rápidas en tu dispositivo (usando Expo Go o un cliente de desarrollo).
-     * - Es rápido porque utiliza credenciales y configuraciones sencillas.
+     * DEVELOPMENT profile for a physical iPhone.
+     * - Development client: hot reload against Metro.
+     * - `distribution: internal` produces an installable build via link/QR.
+     * - Requires registering the device (`eas device:create`) and an Apple
+     *   Developer account for ad hoc distribution.
      */
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "ios": {
-        "simulator": true
-      },
       "android": {
         "buildType": "apk"
       }
     },
     /**
-     * Perfil de PRUEBA (Preview)
-     * - Destinado a QA o a compartir la app internamente antes del lanzamiento.
-     * - Es un build de "producción" pero no se envía a las tiendas automáticamente.
+     * SIMULATOR profile (macOS). Does not need Apple signing or local
+     * CocoaPods: EAS builds in the cloud and returns a .tar.gz to drag into
+     * the simulator.
+     */
+    "simulator": {
+      "extends": "development",
+      "withoutCredentials": true,
+      "ios": {
+        "simulator": true
+      }
+    },
+    /**
+     * PREVIEW profile
+     * - Intended for QA or sharing the app internally before release.
+     * - It is a "production" build but is not submitted to the stores automatically.
      */
     "preview": {
       "distribution": "internal",
@@ -30,15 +42,15 @@
       }
     }
     /**
-     * Perfil de PRODUCCIÓN (Production)
-     * - Destinado al lanzamiento final en Google Play Store o Apple App Store.
-     * - Usa el keystore (clave de firma) definitivo, que es la que se vincula con Google Cloud.
+     * PRODUCTION profile
+     * - Intended for the final release on Google Play Store or Apple App Store.
+     * - Uses the final keystore (signing key), the one linked to Google Cloud.
      */
   },
   "submit": {
     /**
-     * Configuración para EAS Submit (Opcional)
-     * Define cómo se debe subir el artefacto generado a Google Play/App Store.
+     * EAS Submit configuration (optional)
+     * Defines how the generated artifact should be uploaded to Google Play/App Store.
      */
     "production": {
       "android": {

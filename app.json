@@ -2,6 +2,7 @@
   "expo": {
     "name": "cellar-app",
     "slug": "cellar-app",
+    "owner": "mariablanco",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,7 +11,14 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.cellarapp"
+      "bundleIdentifier": "com.anonymous.cellarapp",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Cellar se conecta al servidor de desarrollo de tu ordenador a través de la red local.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,6 +37,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-font",
+      "expo-web-browser",
       [
         "expo-splash-screen",
         {
@@ -45,6 +55,16 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "googleWebClientId": "1045708550044-4155ffpr4p9fhv3e3gqbbne7qf54jr8e.apps.googleusercontent.com",
+      "googleIosClientId": "1045708550044-vftee2h9gure6rrr6368b7qgpdul0pb8.apps.googleusercontent.com",
+      "googleAndroidClientId": "1045708550044-8neivdbepp8hlbgo721nkc0gsfrinoam.apps.googleusercontent.com",
+      "apiUrl": "http://localhost:3000",
+      "router": {},
+      "eas": {
+        "projectId": "c6ffd7e7-4b84-41e1-a645-ddd274957e18"
+      }
     }
   }
 }

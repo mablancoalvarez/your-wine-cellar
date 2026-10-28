@@ -1,8 +1,17 @@
+import { colors } from '@/lib/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import {
+  StyleSheet,
+  TextInput,
+  TextInputProps,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { FieldLabel } from './FieldLabel';
 
 interface InputProps extends TextInputProps {
   label: string;
+  hint?: string;
   required?: boolean;
   rightIcon?: keyof typeof MaterialIcons.glyphMap;
   onRightIconPress?: () => void;
@@ -10,6 +19,7 @@ interface InputProps extends TextInputProps {
 
 export function Input({
   label,
+  hint,
   required = false,
   rightIcon,
   onRightIconPress,
@@ -18,25 +28,35 @@ export function Input({
 }: InputProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>
-        {label}
-        {required && <Text style={styles.required}>*</Text>}
-      </Text>
+      <FieldLabel label={label} hint={hint} required={required} />
+
       <View style={styles.inputContainer}>
         <TextInput
-          style={[styles.input, style]}
-          placeholderTextColor="#999"
+          style={[styles.input, rightIcon ? styles.inputWithIcon : null, style]}
+          placeholderTextColor={colors.muted}
           {...props}
         />
-        {rightIcon && (
-          <MaterialIcons
-            name={rightIcon}
-            size={20}
-            color="#666"
-            onPress={onRightIconPress}
-            style={styles.rightIcon}
-          />
-        )}
+        {rightIcon ? (
+          <View style={styles.iconBox}>
+            {onRightIconPress ? (
+              <TouchableOpacity onPress={onRightIconPress} hitSlop={8}>
+                <MaterialIcons
+                  name={rightIcon}
+                  size={20}
+                  color={colors.muted}
+                  style={styles.icon}
+                />
+              </TouchableOpacity>
+            ) : (
+              <MaterialIcons
+                name={rightIcon}
+                size={20}
+                color={colors.muted}
+                style={styles.icon}
+              />
+            )}
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -44,37 +64,40 @@ export function Input({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 8,
-  },
-  required: {
-    color: '#dc3545',
+    marginBottom: 18,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
+    height: 56,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderRadius: 16,
+    backgroundColor: colors.card,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: colors.text,
     padding: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
-  rightIcon: {
-    marginLeft: 8,
+  inputWithIcon: {
+    paddingRight: 26,
+  },
+  iconBox: {
+    position: 'absolute',
+    right: 16,
+    top: 0,
+    bottom: 0,
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'box-none',
+  },
+  icon: {
+    includeFontPadding: false,
+    height: 20,
+    lineHeight: 20,
   },
 });
-
-
-

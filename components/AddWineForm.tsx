@@ -1,27 +1,26 @@
+import { colors, fonts } from '@/lib/theme';
+import { showAlert } from '@/lib/alert';
+import type { WineInput } from '@/lib/api';
+import { MaterialIcons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from './Button';
 import { Input } from './Input';
 import { NumberInput } from './NumberInput';
+import { StarRating } from './StarRating';
 import { TextArea } from './TextArea';
 
-interface WineFormData {
-  name: string;
-  vintage: string;
-  country: string;
-  year: number;
-  grape: string;
-  rating: number;
-  notes: string;
-}
-
 interface AddWineFormProps {
-  onSubmit: (data: WineFormData) => void;
+  onSubmit: (data: WineInput) => void | Promise<void>;
   onCancel: () => void;
+  submitting?: boolean;
 }
 
-export function AddWineForm({ onSubmit, onCancel }: AddWineFormProps) {
-  const [formData, setFormData] = useState<WineFormData>({
+const MAX_NOTES = 400;
+
+export function AddWineForm({ onSubmit, onCancel, submitting = false }: AddWineFormProps) {
+  const [formData, setFormData] = useState<WineInput>({
     name: '',
     winery: '',
     country: '',
@@ -31,149 +30,242 @@ export function AddWineForm({ onSubmit, onCancel }: AddWineFormProps) {
     notes: '',
   });
 
+  const update = <K extends keyof WineInput>(key: K, value: WineInput[K]) =>
+    setFormData((current) => ({ ...current, [key]: value }));
+
   const handleSubmit = () => {
-    // Validar campos requeridos
-    if (
-      !formData.name ||
-      !formData.winery ||
-      !formData.country ||
-      !formData.grape
-    ) {
-      // TODO: Mostrar error de validación
+    const missing: string[] = [];
+    if (!formData.name.trim()) missing.push('nombre');
+    if (!formData.winery.trim()) missing.push('bodega');
+    if (!formData.country.trim()) missing.push('país');
+    if (!formData.grape.trim()) missing.push('uva');
+
+    if (missing.length > 0) {
+      showAlert('Faltan datos', `Indica al menos ${missing.join(', ')}.`);
       return;
     }
+
     onSubmit(formData);
   };
 
   return (
     <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={true}
-      nestedScrollEnabled={true}
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.subtitle}>
-        Completa la información del vino que deseas añadir a tu bodega
-      </Text>
+      {/* Editorial header */}
+      <View style={styles.hero}>
+        <Image
+          source={require('../assets/images/cellar-hero.jpg')}
+          style={styles.heroImage}
+          contentFit="cover"
+          transition={200}
+        />
 
-      {/* Nombre */}
+        <View style={styles.heroText}>
+          <Text style={styles.heroEyebrow}>NUEVA REFERENCIA</Text>
+          <Text style={styles.heroTitle}>Ficha de Cata &amp; Bodega</Text>
+          <Text style={styles.heroBody}>
+            Completa la información del vino que deseas registrar en tu cava…
+          </Text>
+        </View>
+      </View>
+
       <Input
-        label="Nombre"
+        label="Nombre del vino"
+        hint="Requerido"
         required
         placeholder="Ej: Reserva Especial"
+        rightIcon="wine-bar"
         value={formData.name}
-        onChangeText={(text) => setFormData({ ...formData, name: text })}
-        rightIcon="person"
-        onRightIconPress={() => {
-          // TODO: Implementar selector de nombres sugeridos
-          console.log('Abrir selector de nombres');
-        }}
+        onChangeText={(text) => update('name', text)}
       />
 
-      {/* Bodega */}
       <Input
-        label="Bodega"
+        label="Bodega / Productor"
         required
         placeholder="Ej: Bodegas Torres"
+        rightIcon="business"
         value={formData.winery}
-        onChangeText={(text) => setFormData({ ...formData, winery: text })}
+        onChangeText={(text) => update('winery', text)}
       />
 
-      {/* País y Año en fila */}
       <View style={styles.row}>
-        <View style={[styles.halfWidth, { marginRight: 6 }]}>
+        <View style={styles.half}>
           <Input
             label="País"
             required
             placeholder="Ej: España"
+            rightIcon="public"
             value={formData.country}
-            onChangeText={(text) => setFormData({ ...formData, country: text })}
+            onChangeText={(text) => update('country', text)}
           />
         </View>
-        <View style={[styles.halfWidth, { marginLeft: 6 }]}>
+        <View style={styles.half}>
           <NumberInput
-            label="Año"
+            label="Añada (Año)"
             value={formData.year}
-            onChange={(value) => setFormData({ ...formData, year: value })}
+            onChange={(value) => update('year', value)}
             min={1900}
             max={new Date().getFullYear() + 1}
           />
         </View>
       </View>
 
-      {/* Tipo de Uva */}
       <Input
-        label="Tipo de Uva"
+        label="Tipo de Uva / Variedad"
         required
-        placeholder="Ej: Tempranillo"
+        placeholder="Ej: Tempranillo, Garnacha..."
+        rightIcon="eco"
         value={formData.grape}
-        onChangeText={(text) => setFormData({ ...formData, grape: text })}
+        onChangeText={(text) => update('grape', text)}
       />
 
-      {/* Valoración */}
-      <NumberInput
-        label="Valoración (0-5)"
+      <StarRating
+        label="Valoración (0 – 5)"
+        hint="Opcional"
         value={formData.rating}
-        onChange={(value) => setFormData({ ...formData, rating: value })}
-        min={0}
-        max={5}
+        onChange={(value) => update('rating', value)}
       />
 
-      {/* Notas */}
       <TextArea
-        label="Notas"
-        placeholder="Añade tus notas de cata..."
+        label="Notas de Cata & Aromas"
+        hint="Opcional"
+        placeholder="Añade tus impresiones: ribete violáceo, frutos rojos maduros, taninos sedosos, paso elegante por barrica de roble…"
+        maxLength={MAX_NOTES}
         value={formData.notes}
-        onChangeText={(text) => setFormData({ ...formData, notes: text })}
+        onChangeText={(text) => update('notes', text)}
+        footer={
+          <>
+            <View style={styles.diary}>
+              <MaterialIcons name="bookmark-border" size={14} color={colors.muted} />
+              <Text style={styles.diaryText}>DIARIO PRIVADO</Text>
+            </View>
+            <Text style={styles.counter}>
+              {formData.notes.length} / {MAX_NOTES}
+            </Text>
+          </>
+        }
       />
 
-      {/* Botones */}
-      <View style={styles.buttonsContainer}>
-        <Button
-          title="Guardar"
-          variant="primary"
-          fullWidth
-          onPress={handleSubmit}
-          style={styles.saveButton}
-        />
-        <Button
-          title="Cancelar"
-          variant="outline"
-          fullWidth
-          onPress={onCancel}
-          style={styles.cancelButton}
-        />
-      </View>
+      <Button
+        title="Guardar en Cava"
+        icon="bookmark-border"
+        fullWidth
+        loading={submitting}
+        onPress={handleSubmit}
+        textStyle={styles.buttonText}
+        style={styles.saveButton}
+      />
+      <Button
+        title="Cancelar"
+        variant="secondary"
+        fullWidth
+        onPress={onCancel}
+        textStyle={styles.buttonText}
+        style={styles.cancelButton}
+      />
+
+      <View style={styles.footerRule} />
+      <Text style={styles.footerText}>COLECCIÓN CELLAR · BODEGA PRIVADA</Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
+  scroll: {
     flex: 1,
   },
-  contentContainer: {
-    paddingBottom: 30,
-    flexGrow: 1,
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 32,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
+  hero: {
+    flexDirection: 'row',
+    gap: 14,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: colors.sand,
     marginBottom: 24,
-    lineHeight: 20,
+  },
+  heroImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 12,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroText: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  heroEyebrow: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    color: colors.wine,
+  },
+  heroTitle: {
+    fontFamily: fonts.serifSemiBold,
+    fontSize: 20,
+    color: colors.wine,
+    marginTop: 4,
+  },
+  heroBody: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.muted,
   },
   row: {
     flexDirection: 'row',
+    gap: 12,
   },
-  halfWidth: {
+  half: {
     flex: 1,
   },
-  buttonsContainer: {
-    marginTop: 8,
+  diary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  diaryText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: colors.muted,
+  },
+  counter: {
+    fontSize: 13,
+    color: colors.muted,
+  },
+  buttonText: {
+    fontFamily: fonts.serifMedium,
+    fontSize: 17,
   },
   saveButton: {
-    marginBottom: 12,
+    marginTop: 6,
+    height: 56,
   },
-  cancelButton: {},
+  cancelButton: {
+    marginTop: 12,
+    height: 56,
+  },
+  footerRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.hairline,
+    marginTop: 28,
+  },
+  footerText: {
+    marginTop: 14,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.6,
+    color: colors.muted,
+    textAlign: 'center',
+  },
 });

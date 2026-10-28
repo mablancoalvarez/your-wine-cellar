@@ -1,50 +1,88 @@
-# Welcome to your Expo app 👋
+# Cellar
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicación Expo (iOS, Android y web) para gestionar una bodega personal de vinos,
+con API propia (Fastify + Prisma + Postgres) y login con Google.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+App Expo ──► API Fastify ──► Postgres (Docker)
+      │
+      └──► Google Identity (solo para validar identidad)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Requisitos
 
-## Learn more
+- Node.js (ver `.nvmrc`)
+- Docker
+- Xcode para el simulador de iOS
 
-To learn more about developing your project with Expo, look at the following resources:
+## Puesta en marcha
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### 1. Base de datos
 
-## Join the community
+```bash
+docker compose up -d
+```
 
-Join our community of developers creating universal apps.
+Postgres queda publicado en `localhost:5433` (usuario, contraseña y base: `cellar`).
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### 2. API
+
+```bash
+cd server
+cp .env.example .env   # rellena JWT_ACCESS_SECRET y GOOGLE_CLIENT_IDS
+npm install
+npx prisma migrate dev
+npm run dev
+```
+
+Comprobación: `curl http://localhost:3000/health` → `{"ok":true}`.
+
+Para probar la API sin Google:
+
+```bash
+cd server && npm run dev:token
+```
+
+### 3. App
+
+```bash
+cp .env.example .env   # URL de la API y Client IDs de Google
+npm install
+npm run simulator      # development build en el simulador de iOS
+```
+
+> El login con Google no funciona en Expo Go: usa un development build
+> (`npm run simulator` o `npm run start:dev-client`).
+
+## Estructura
+
+| Ruta | Contenido |
+|---|---|
+| `app/` | Rutas de expo-router (`login`, `home`, `add-wine`) |
+| `components/` | Componentes de UI reutilizables |
+| `contexts/` | Estado global de autenticación |
+| `hooks/` | Hooks de datos de la app |
+| `lib/` | Cliente HTTP, tema, filtros y utilidades |
+| `server/` | API Fastify + Prisma |
+| `docker-compose.yml` | Postgres local |
+
+## Comandos útiles
+
+```bash
+npm run lint            # ESLint (app)
+npx tsc --noEmit        # Typecheck (app)
+cd server && npm run typecheck
+```
+
+La configuración detallada de Google OAuth, EAS y builds de iOS está en
+[`AUTH_SETUP.md`](./AUTH_SETUP.md).
+
+## Variables de entorno
+
+- Raíz (`.env`): `EXPO_PUBLIC_API_URL`, `CLIENT_ID_WEB`, `CLIENT_ID_IOS`,
+  `CLIENT_ID_ANDROID`.
+- Servidor (`server/.env`): `DATABASE_URL`, `JWT_ACCESS_SECRET`,
+  `GOOGLE_CLIENT_IDS`, `GOOGLE_CLIENT_SECRET`, `PORT`.
+
+Los Client ID de Google son públicos; `app.json` los incluye como fallback para
+los builds de EAS, que no suben el archivo `.env`.

@@ -1,59 +1,68 @@
-import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { colors } from '@/lib/theme';
+import {
+  StyleSheet,
+  TextInput,
+  TextInputProps,
+  View,
+} from 'react-native';
+import { FieldLabel } from './FieldLabel';
 
 interface TextAreaProps extends TextInputProps {
   label: string;
+  hint?: string;
   required?: boolean;
+  /** Optional content anchored to the card footer (counter, notices…). */
+  footer?: React.ReactNode;
 }
 
 export function TextArea({
   label,
+  hint,
   required = false,
+  footer,
   style,
   ...props
 }: TextAreaProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>
-        {label}
-        {required && <Text style={styles.required}>*</Text>}
-      </Text>
-      <TextInput
-        style={[styles.textArea, style]}
-        multiline
-        numberOfLines={4}
-        textAlignVertical="top"
-        placeholderTextColor="#999"
-        {...props}
-      />
+      <FieldLabel label={label} hint={hint} required={required} />
+
+      <View style={styles.card}>
+        <TextInput
+          style={[styles.textArea, style]}
+          multiline
+          textAlignVertical="top"
+          placeholderTextColor={colors.muted}
+          {...props}
+        />
+        {footer ? <View style={styles.footer}>{footer}</View> : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 8,
-  },
-  required: {
-    color: '#dc3545',
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
   textArea: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    minHeight: 96,
     fontSize: 16,
-    color: '#1A1A1A',
-    minHeight: 100,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    lineHeight: 23,
+    color: colors.text,
+    padding: 0,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
   },
 });
-
-
-

@@ -1,362 +1,388 @@
-import { MaterialIcons } from '@expo/vector-icons';
-import * as AuthSession from 'expo-auth-session';
+import { GoogleIcon, WineGlassIcon } from '@/components';
+import { useAuth } from '@/contexts/AuthContext';
+import { showAlert } from '@/lib/alert';
+import { getErrorMessage } from '@/lib/errors';
+import {
+  backgroundGradient,
+  backgroundGradientLocations,
+  colors,
+  fonts,
+} from '@/lib/theme';
+import { ResponseType } from 'expo-auth-session';
+import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
-  SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-// Necesario para que funcione correctamente el flujo de autenticación
-if (Platform.OS !== 'web') {
-  WebBrowser.maybeCompleteAuthSession();
+WebBrowser.maybeCompleteAuthSession();
+
+const googleExtra = Constants.expoConfig?.extra as
+  | {
+      googleWebClientId?: string;
+      googleIosClientId?: string;
+      googleAndroidClientId?: string;
+    }
+  | undefined;
+
+function iosRedirectUri(clientId?: string) {
+  const suffix = '.apps.googleusercontent.com';
+  if (!clientId?.endsWith(suffix)) return undefined;
+  return `com.googleusercontent.apps.${clientId.slice(0, -suffix.length)}:/oauthredirect`;
 }
+
+const googleClientId =
+  Platform.OS === 'ios'
+    ? googleExtra?.googleIosClientId
+    : Platform.OS === 'android'
+      ? googleExtra?.googleAndroidClientId
+      : googleExtra?.googleWebClientId;
+
+const platformRedirectUri = Platform.OS === 'ios' ? iosRedirectUri(googleClientId) : undefined;
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { signInWithGoogle, user } = useAuth();
+  const handledCode = useRef<string | null>(null);
+
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    {
+      webClientId: googleExtra?.googleWebClientId,
+      iosClientId: googleExtra?.googleIosClientId,
+      androidClientId: googleExtra?.googleAndroidClientId,
+      selectAccount: true,
+      responseType: ResponseType.Code,
+      shouldAutoExchangeCode: false,
+      ...(platformRedirectUri ? { redirectUri: platformRedirectUri } : {}),
+    },
+    { scheme: 'cellarapp', path: 'login' },
+  );
+
+  useEffect(() => {
+    if (user) {
+      router.replace('/home');
+    }
+  }, [router, user]);
+
+  useEffect(() => {
+    if (response?.type === 'error') {
+      showAlert('Error', response.error?.message || 'No se pudo iniciar sesión con Google');
+      setLoading(false);
+      return;
+    }
+
+    if (response?.type !== 'success') {
+      return;
+    }
+
+    const code = response.params.code;
+    const redirectUri = request?.redirectUri;
+    const codeVerifier = request?.codeVerifier;
+    if (!code || !redirectUri || !codeVerifier || !googleClientId) {
+      showAlert(
+        'Error',
+        'No se pudo completar el inicio de sesión con Google. Inténtalo de nuevo.',
+      );
+      setLoading(false);
+      return;
+    }
+    if (handledCode.current === code) {
+      return;
+    }
+
+    handledCode.current = code;
+
+    void (async () => {
+      try {
+        await signInWithGoogle({ code, redirectUri, codeVerifier, clientId: googleClientId });
+        // Navigation is handled by the effect watching `user`.
+      } catch (error) {
+        handledCode.current = null;
+        showAlert('Error', getErrorMessage(error, 'No se pudo iniciar sesión con Google'));
+        setLoading(false);
+      }
+    })();
+  }, [response, request, signInWithGoogle]);
 
   const handleGoogleSignIn = async () => {
-    if (!isSupabaseConfigured) {
-      Alert.alert(
+    if (!request || !googleClientId) {
+      showAlert(
         'Error',
-        'Supabase no está configurado. Verifica tu archivo .env'
+        'Falta el Client ID de Google. Revisa CLIENT_ID_WEB, CLIENT_ID_IOS y CLIENT_ID_ANDROID en .env',
+      );
+      return;
+    }
+
+    if (Platform.OS !== 'web' && Constants.executionEnvironment === 'storeClient') {
+      showAlert(
+        'Simulador',
+        'Expo Go no puede completar el login de Google. Usa el development build: npm run simulator.',
       );
       return;
     }
 
     try {
       setLoading(true);
-
-      const scheme = Array.isArray(Constants.expoConfig?.scheme)
-        ? Constants.expoConfig.scheme[0]
-        : Constants.expoConfig?.scheme || 'cellarapp';
-
-      // Configurar el redirect URI
-      const redirectTo =
-        Platform.OS === 'web'
-          ? AuthSession.makeRedirectUri({
-              scheme,
-              path: 'auth/callback',
-            })
-          : `${scheme}://auth/callback`;
-
-      console.log('redirect', redirectTo);
-      // Obtener la URL de autenticación de Supabase
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        if (Platform.OS === 'web') {
-          // En web, redirigir directamente a la URL de Google
-          // El callback será manejado por la ruta /auth/callback
-          if (typeof window !== 'undefined') {
-            window.location.href = data.url;
-          }
-        } else {
-          // En iOS/Android, abrir el navegador para autenticación
-          console.log('🔍 Abriendo WebBrowser con URL:', data.url);
-          console.log('🔍 RedirectTo:', redirectTo);
-          const result = await WebBrowser.openAuthSessionAsync(
-            data.url,
-            redirectTo
-          );
-
-          console.log('🔍 Resultado de WebBrowser:', result.type);
-
-          if (result.type === 'success') {
-            console.log('🔍 URL completa recibida:', result.url);
-
-            // En iOS, Supabase puede devolver tokens directamente en el hash (access_token)
-            // o un código que necesita ser intercambiado. Navegamos a /auth/callback
-            // y dejamos que esa ruta maneje ambos casos (igual que en web)
-
-            // Verificar si hay error en la URL
-            const urlString = result.url;
-            const errorMatch = urlString.match(/[?&#]error=([^&#]+)/);
-
-            if (errorMatch) {
-              const error = decodeURIComponent(errorMatch[1]);
-              Alert.alert('Error de autenticación', error);
-              setLoading(false);
-              return;
-            }
-
-            // Verificar si hay access_token (tokens directos) o code (código a intercambiar)
-            const hasAccessToken = urlString.includes('access_token=');
-            const hasCode = urlString.includes('code=');
-
-            console.log('🔍 Has access_token:', hasAccessToken);
-            console.log('🔍 Has code:', hasCode);
-
-            if (hasAccessToken || hasCode) {
-              // Navegar a /auth/callback - esa ruta manejará el procesamiento
-              console.log(
-                '🔍 Tokens o código encontrados, navegando a /auth/callback'
-              );
-
-              // Si hay código, pasarlo como parámetro
-              if (hasCode) {
-                const codeMatch = urlString.match(/[?&#]code=([^&#]+)/);
-                if (codeMatch) {
-                  const code = decodeURIComponent(codeMatch[1]);
-                  router.replace({
-                    pathname: '/auth/callback',
-                    params: { code },
-                  });
-                } else {
-                  router.replace('/auth/callback');
-                }
-              } else if (hasAccessToken) {
-                // Si hay access_token, extraer el hash completo y pasarlo al callback
-                // El hash contiene todos los tokens necesarios
-                const hashMatch = urlString.match(/#(.+)/);
-                if (hashMatch) {
-                  const hash = hashMatch[1];
-                  console.log('🔍 Hash extraído, pasando al callback');
-                  // Pasar el hash completo como parámetro
-                  router.replace({
-                    pathname: '/auth/callback',
-                    params: { hash },
-                  });
-                } else {
-                  // Si no podemos extraer el hash, simplemente navegar
-                  router.replace('/auth/callback');
-                }
-              }
-            } else {
-              console.error(
-                '🔍 No se encontró ni código ni access_token en la URL'
-              );
-              console.error('🔍 URL completa:', result.url);
-              Alert.alert(
-                'Error',
-                'No se recibió la respuesta de autenticación. Por favor, intenta de nuevo.'
-              );
-              setLoading(false);
-            }
-          } else if (result.type === 'cancel') {
-            console.log('🔍 Usuario canceló el login');
-            setLoading(false);
-          } else if (result.type === 'dismiss') {
-            console.log('🔍 Usuario cerró el navegador');
-            setLoading(false);
-          } else {
-            console.log('🔍 Resultado inesperado:', result.type);
-            setLoading(false);
-          }
-        }
+      const result = await promptAsync();
+      if (result.type !== 'success') {
+        setLoading(false);
       }
-    } catch (error: any) {
-      console.error('Error en Google Sign In:', error);
-      Alert.alert(
-        'Error',
-        error.message || 'No se pudo iniciar sesión con Google'
-      );
-    } finally {
+    } catch (error) {
+      showAlert('Error', getErrorMessage(error, 'No se pudo iniciar sesión con Google'));
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Logo/Icono de la app */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <MaterialIcons name="wine-bar" size={64} color="#8B4513" />
-          </View>
-        </View>
+    <View style={styles.root}>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={backgroundGradient}
+        locations={backgroundGradientLocations}
+        style={StyleSheet.absoluteFill}
+      />
 
-        {/* Título y subtítulo */}
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>Bienvenido a Cellar! Welcome</Text>
-          <Text style={styles.subtitle}>
-            Inicia sesión para comenzar a gestionar tu bodega
-          </Text>
-        </View>
+      {/* Warm glow behind the emblem */}
+      <Svg
+        style={StyleSheet.absoluteFill}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        pointerEvents="none"
+      >
+        <Defs>
+          <RadialGradient
+            id="glow"
+            cx="50"
+            cy="0"
+            rx="64"
+            ry="44"
+            fx="50"
+            fy="0"
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0" stopColor={colors.burgundy.glow} stopOpacity="1" />
+            <Stop offset="0.45" stopColor={colors.burgundy.glow} stopOpacity="0.45" />
+            <Stop offset="1" stopColor={colors.burgundy.glow} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100" height="100" fill="url(#glow)" />
+      </Svg>
 
-        {/* Botón de Google */}
-        <TouchableOpacity
-          style={[styles.googleButton, loading && styles.buttonDisabled]}
-          onPress={handleGoogleSignIn}
-          disabled={loading}
-          activeOpacity={0.8}
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          bounces={false}
+          showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <ActivityIndicator color="#4285F4" size="small" />
-          ) : (
-            <>
-              <View style={styles.googleIconContainer}>
-                <View style={styles.googleIcon}>
-                  <View style={styles.googleIconInner}>
-                    <View style={[styles.googleColor, styles.googleBlue]} />
-                    <View style={[styles.googleColor, styles.googleRed]} />
-                    <View style={[styles.googleColor, styles.googleYellow]} />
-                    <View style={[styles.googleColor, styles.googleGreen]} />
-                  </View>
-                </View>
+          <View style={styles.brand}>
+            <View style={styles.emblem}>
+              <View style={styles.emblemFill}>
+                <LinearGradient
+                  colors={['rgba(124, 36, 56, 0.55)', 'rgba(27, 5, 9, 0.35)']}
+                  style={StyleSheet.absoluteFill}
+                />
               </View>
-              <Text style={styles.googleButtonText}>Continuar con Google</Text>
-            </>
-          )}
-        </TouchableOpacity>
+              <WineGlassIcon size={48} color={colors.gold.primary} />
+            </View>
 
-        {/* Texto de términos */}
-        <Text style={styles.termsText}>
-          Al continuar, aceptas nuestros términos de servicio y política de
-          privacidad
-        </Text>
-      </View>
-    </SafeAreaView>
+            <Text style={styles.wordmark}>CELLAR</Text>
+
+            <View style={styles.tagline}>
+              <View style={styles.taglineRule} />
+              <Text style={styles.taglineText}>COLECCIÓN &amp; CAVA PRIVADA</Text>
+              <View style={styles.taglineRule} />
+            </View>
+          </View>
+
+          <View style={styles.hero}>
+            <Text style={styles.heading}>Tu bodega personal,</Text>
+            <Text style={[styles.heading, styles.headingAccent]}>
+              elevada a su mejor versión.
+            </Text>
+            <Text style={styles.body}>
+              Lleva el registro de tus botellas más preciadas, notas de cata e
+              impresiones con total sencillez.
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.googleButton, loading && styles.buttonDisabled]}
+            onPress={handleGoogleSignIn}
+            disabled={loading}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Continuar con Google"
+            accessibilityState={{ disabled: loading, busy: loading }}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.ink} size="small" />
+            ) : (
+              <>
+                <GoogleIcon size={21} />
+                <Text style={styles.googleButtonText}>Continuar con Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.legal}>
+            <View style={styles.legalRule} />
+            <Text style={styles.legalText}>
+              Al acceder, confirmas tu conformidad con las condiciones de uso y
+              la política de privacidad de la plataforma.
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.burgundy.deep,
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
   },
-  container: {
+  scroll: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: 26,
+    paddingBottom: 8,
+  },
+  brand: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  emblem: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 1,
+    borderColor: 'rgba(214, 177, 115, 0.6)',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    shadowColor: colors.gold.line,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 6,
   },
-  logoContainer: {
-    marginBottom: 48,
-    alignItems: 'center',
+  emblemFill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 48,
+    overflow: 'hidden',
   },
-  logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
+  wordmark: {
+    marginTop: 22,
+    fontFamily: fonts.serifMedium,
+    fontSize: 28,
+    letterSpacing: 6.5,
+    // Offsets the trailing tracking so the text is centered.
+    paddingLeft: 6.5,
+    color: colors.gold.primary,
   },
-  textContainer: {
+  tagline: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 48,
-    paddingHorizontal: 20,
+    marginTop: 16,
+    gap: 11,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    color: '#1A1A1A',
+  taglineRule: {
+    width: 32,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.gold.faint,
+  },
+  taglineText: {
+    fontFamily: fonts.display,
+    fontSize: 10.5,
+    letterSpacing: 2.7,
+    paddingLeft: 2.7,
+    color: colors.gold.primary,
+    opacity: 0.85,
+  },
+  hero: {
+    flex: 1.25,
+    justifyContent: 'flex-end',
+    paddingBottom: 28,
+  },
+  heading: {
+    fontFamily: fonts.serif,
+    fontSize: 27,
+    lineHeight: 34,
+    color: colors.cream,
     textAlign: 'center',
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
+  headingAccent: {
+    fontFamily: fonts.serifItalic,
+    color: colors.gold.primary,
+  },
+  body: {
+    marginTop: 26,
+    maxWidth: 296,
+    alignSelf: 'center',
+    fontSize: 13.5,
+    lineHeight: 21,
+    color: colors.rose.text,
     textAlign: 'center',
-    lineHeight: 24,
   },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#DADCE0',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    minWidth: 280,
+    gap: 12,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.surface,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  googleIconContainer: {
-    width: 20,
-    height: 20,
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  googleIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 2,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-  },
-  googleIconInner: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
-  googleColor: {
-    position: 'absolute',
-    width: '50%',
-    height: '50%',
-  },
-  googleBlue: {
-    top: 0,
-    left: 0,
-    backgroundColor: '#4285F4',
-    borderTopLeftRadius: 2,
-  },
-  googleRed: {
-    top: 0,
-    right: 0,
-    backgroundColor: '#EA4335',
-    borderTopRightRadius: 2,
-  },
-  googleYellow: {
-    bottom: 0,
-    left: 0,
-    backgroundColor: '#FBBC04',
-    borderBottomLeftRadius: 2,
-  },
-  googleGreen: {
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#34A853',
-    borderBottomRightRadius: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 8,
   },
   googleButtonText: {
-    color: '#3C4043',
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: colors.ink,
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.75,
   },
-  termsText: {
-    marginTop: 32,
+  legal: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingTop: 28,
+  },
+  legalRule: {
+    width: 32,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.gold.faint,
+    marginBottom: 18,
+  },
+  legalText: {
+    maxWidth: 283,
     fontSize: 12,
-    color: '#999',
+    lineHeight: 17,
+    color: colors.rose.dim,
     textAlign: 'center',
-    paddingHorizontal: 40,
-    lineHeight: 18,
   },
 });

@@ -1,79 +1,55 @@
+import { colors } from '@/lib/theme';
 import { MaterialIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
+import { FieldLabel } from './FieldLabel';
 
 interface NumberInputProps {
   label: string;
+  hint?: string;
   value: number;
   onChange: (value: number) => void;
   min?: number;
   max?: number;
   required?: boolean;
+  rightIcon?: keyof typeof MaterialIcons.glyphMap;
 }
 
 export function NumberInput({
   label,
+  hint,
   value,
   onChange,
   min = 0,
   max = 9999,
   required = false,
+  rightIcon = 'calendar-today',
 }: NumberInputProps) {
-  const handleIncrement = () => {
-    if (value < max) {
-      onChange(value + 1);
-    }
-  };
-
-  const handleDecrement = () => {
-    if (value > min) {
-      onChange(value - 1);
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>
-        {label}
-        {required && <Text style={styles.required}>*</Text>}
-      </Text>
+      <FieldLabel label={label} hint={hint} required={required} />
+
       <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
-          value={value.toString()}
+          style={[styles.input, styles.inputWithIcon]}
+          value={value ? String(value) : ''}
           onChangeText={(text) => {
             const num = parseInt(text, 10);
             if (!isNaN(num) && num >= min && num <= max) {
               onChange(num);
-            } else if (text === '') {
-              onChange(min);
             }
           }}
-          keyboardType="numeric"
+          keyboardType="number-pad"
           selectTextOnFocus
+          maxLength={4}
+          placeholderTextColor={colors.muted}
         />
-        <View style={styles.controls}>
-          <TouchableOpacity
-            onPress={handleIncrement}
-            style={styles.controlButton}
-            disabled={value >= max}
-          >
-            <MaterialIcons
-              name="keyboard-arrow-up"
-              size={20}
-              color={value >= max ? '#CCC' : '#666'}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleDecrement}
-            style={styles.controlButton}
-            disabled={value <= min}
-          >
-            <MaterialIcons
-              name="keyboard-arrow-down"
-              size={20}
-              color={value <= min ? '#CCC' : '#666'}
-            />
-          </TouchableOpacity>
+        <View style={styles.iconBox}>
+          <MaterialIcons
+            name={rightIcon}
+            size={20}
+            color={colors.muted}
+            style={styles.icon}
+          />
         </View>
       </View>
     </View>
@@ -82,41 +58,40 @@ export function NumberInput({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 8,
-  },
-  required: {
-    color: '#dc3545',
+    marginBottom: 18,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
+    height: 56,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderRadius: 16,
+    backgroundColor: colors.card,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: colors.text,
     padding: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
-  controls: {
-    flexDirection: 'column',
-    marginLeft: 8,
+  inputWithIcon: {
+    paddingRight: 26,
   },
-  controlButton: {
-    padding: 2,
+  iconBox: {
+    position: 'absolute',
+    right: 16,
+    top: 0,
+    bottom: 0,
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'box-none',
+  },
+  icon: {
+    includeFontPadding: false,
+    height: 20,
+    lineHeight: 20,
   },
 });
-
-
-

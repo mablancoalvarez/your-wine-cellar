@@ -1,11 +1,17 @@
 export { AddWineForm } from './AddWineForm';
+export { AppHeader } from './AppHeader';
 export { Avatar } from './Avatar';
+export { BottomTabBar } from './BottomTabBar';
+export type { TabId } from './BottomTabBar';
 export { Button } from './Button';
 export { DropdownMenu } from './DropdownMenu';
 export { FilterButton } from './FilterButton';
+export { GoogleIcon } from './GoogleIcon';
 export { Input } from './Input';
 export { Modal } from './Modal';
 export { NumberInput } from './NumberInput';
 export { SearchBar } from './SearchBar';
+export { StarRating } from './StarRating';
 export { TextArea } from './TextArea';
 export { WineCard } from './WineCard';
+export { WineGlassIcon } from './WineGlassIcon';

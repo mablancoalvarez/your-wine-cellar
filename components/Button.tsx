@@ -1,8 +1,11 @@
+import { colors } from '@/lib/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
+  StyleProp,
   StyleSheet,
   Text,
+  TextStyle,
   TouchableOpacity,
   TouchableOpacityProps,
   ViewStyle,
@@ -16,6 +19,7 @@ interface ButtonProps extends TouchableOpacityProps {
   icon?: keyof typeof MaterialIcons.glyphMap;
   iconPosition?: 'left' | 'right';
   fullWidth?: boolean;
+  textStyle?: StyleProp<TextStyle>;
 }
 
 export function Button({
@@ -28,6 +32,7 @@ export function Button({
   fullWidth = false,
   disabled,
   style,
+  textStyle,
   ...props
 }: ButtonProps) {
   const buttonStyle: ViewStyle[] = [
@@ -39,10 +44,11 @@ export function Button({
     style as ViewStyle,
   ];
 
-  const textStyle = [
+  const labelStyle = [
     styles.text,
     styles[`${variant}Text`],
     styles[`${size}Text`],
+    textStyle,
   ];
 
   const renderIcon = () => {
@@ -51,7 +57,7 @@ export function Button({
       <MaterialIcons
         name={icon}
         size={size === 'small' ? 16 : size === 'large' ? 24 : 20}
-        color={variant === 'outline' ? '#8B4513' : '#fff'}
+        color={variant === 'outline' ? colors.wine : colors.cream}
         style={iconPosition === 'left' ? styles.iconLeft : styles.iconRight}
       />
     );
@@ -66,13 +72,13 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'outline' ? '#8B4513' : '#fff'}
+          color={variant === 'outline' ? colors.wine : colors.cream}
           size="small"
         />
       ) : (
         <>
           {iconPosition === 'left' && renderIcon()}
-          <Text style={textStyle}>{title}</Text>
+          <Text style={labelStyle}>{title}</Text>
           {iconPosition === 'right' && renderIcon()}
         </>
       )}
@@ -85,23 +91,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: 999,
     paddingHorizontal: 24,
     paddingVertical: 14,
   },
   primary: {
-    backgroundColor: '#8B4513',
+    backgroundColor: colors.wine,
   },
   secondary: {
-    backgroundColor: '#6B4423',
+    backgroundColor: colors.sand,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: '#8B4513',
+    borderColor: colors.wine,
   },
   danger: {
-    backgroundColor: '#dc3545',
+    backgroundColor: colors.danger,
   },
   smallSize: {
     paddingHorizontal: 16,
@@ -126,16 +132,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   primaryText: {
-    color: '#fff',
+    color: colors.surface,
   },
   secondaryText: {
-    color: '#fff',
+    color: colors.wine,
   },
   outlineText: {
-    color: '#8B4513',
+    color: colors.wine,
   },
   dangerText: {
-    color: '#fff',
+    color: colors.surface,
   },
   smallText: {
     fontSize: 14,
