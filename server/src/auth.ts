@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { OAuth2Client } from 'google-auth-library';
 import { jwtVerify, SignJWT } from 'jose';
@@ -54,7 +54,14 @@ function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
-export async function issueTokens(userId: string, email: string) {
+type TokenStore = Prisma.TransactionClient | typeof prisma;
+
+export async function issueTokens(
+  userId: string,
+  email: string,
+  familyId: string = randomUUID(),
+  db: TokenStore = prisma,
+) {
   const accessToken = await new SignJWT({ email })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
@@ -63,9 +70,10 @@ export async function issueTokens(userId: string, email: string) {
     .sign(accessSecret);
 
   const refreshToken = randomBytes(32).toString('base64url');
-  await prisma.refreshToken.create({
+  await db.refreshToken.create({
     data: {
       userId,
+      familyId,
       tokenHash: hashToken(refreshToken),
       expiresAt: new Date(Date.now() + REFRESH_DAYS * 24 * 60 * 60 * 1000),
     },
@@ -84,20 +92,38 @@ export async function verifyAccessToken(token: string) {
 
 export async function rotateRefreshToken(refreshToken: string) {
   const tokenHash = hashToken(refreshToken);
-  const stored = await prisma.refreshToken.findUnique({
-    where: { tokenHash },
-    include: { user: true },
-  });
-  if (!stored || stored.expiresAt.getTime() < Date.now()) {
-    if (stored) {
-      await prisma.refreshToken.delete({ where: { id: stored.id } });
-    }
-    return null;
-  }
 
-  await prisma.refreshToken.delete({ where: { id: stored.id } });
-  const tokens = await issueTokens(stored.userId, stored.user.email);
-  return { ...tokens, user: toPublicUser(stored.user) };
+  return prisma.$transaction(async (tx) => {
+    const stored = await tx.refreshToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+    if (!stored || stored.expiresAt.getTime() < Date.now()) {
+      if (stored) {
+        await tx.refreshToken.delete({ where: { id: stored.id } });
+      }
+      return null;
+    }
+
+    // A refresh token already marked used means it was stolen and replayed.
+    // Drop the whole family so the attacker’s successor tokens die too.
+    if (stored.usedAt) {
+      await tx.refreshToken.deleteMany({ where: { familyId: stored.familyId } });
+      return null;
+    }
+
+    const marked = await tx.refreshToken.updateMany({
+      where: { id: stored.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+    if (marked.count !== 1) {
+      await tx.refreshToken.deleteMany({ where: { familyId: stored.familyId } });
+      return null;
+    }
+
+    const tokens = await issueTokens(stored.userId, stored.user.email, stored.familyId, tx);
+    return { ...tokens, user: toPublicUser(stored.user) };
+  });
 }
 
 export async function revokeRefreshToken(refreshToken: string) {
@@ -114,6 +140,13 @@ export async function loginWithGoogleCode(input: {
 }) {
   if (!env.googleWebClientId) {
     throw new Error('Falta GOOGLE_CLIENT_IDS en server/.env');
+  }
+
+  if (
+    env.googleRedirectUris.length > 0 &&
+    !env.googleRedirectUris.includes(input.redirectUri)
+  ) {
+    throw new HttpError(400, 'redirectUri no permitido');
   }
 
   const clientId =
@@ -168,7 +201,9 @@ export async function loginWithGoogle(idToken: string) {
     .catch(() => null);
   const payload = ticket?.getPayload();
 
-  if (!payload?.sub || !payload.email) {
+  const emailVerified =
+    payload?.email_verified === true || String(payload?.email_verified) === 'true';
+  if (!payload?.sub || !payload.email || !emailVerified) {
     throw new HttpError(401, 'Token de Google no válido');
   }
 
@@ -190,13 +225,9 @@ export async function loginWithGoogle(idToken: string) {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     ) {
-      user = await prisma.user.update({
-        where: { email: payload.email },
-        data: { ...data, googleSub: payload.sub },
-      });
-    } else {
-      throw error;
+      throw new HttpError(409, 'Ese email ya está vinculado a otra cuenta de Google');
     }
+    throw error;
   }
 
   await ensureCellars(user.id);

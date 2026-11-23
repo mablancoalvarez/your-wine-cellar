@@ -204,7 +204,7 @@ Abre la app web en `http://localhost:8081`, no en `http://127.0.0.1:8081`, para 
 2. Google redirige a `http://localhost:8081/login` en web (o al scheme nativo en iOS/Android).
 3. La app envía `code`, `redirectUri`, `codeVerifier` y `clientId` a `POST /auth/google`.
 4. La API intercambia el código en `https://oauth2.googleapis.com/token`. Si es el cliente web, añade `GOOGLE_CLIENT_SECRET`.
-5. La API verifica el `id_token`, crea el usuario si no existe, abre "Mi bodega" y "Favoritos", y devuelve un JWT propio + refresh token.
+5. La API verifica el `id_token` y que el email de Google esté verificado. Si ese email ya pertenece a otra cuenta de Google, rechaza el login. Si no, crea el usuario, abre "Mi bodega" y "Favoritos", y devuelve un JWT propio + refresh token. Un refresh token reutilizado invalida toda la familia de sesión.
 6. La app guarda la sesión y entra en `/home`.
 
 ## 6. Problemas frecuentes
