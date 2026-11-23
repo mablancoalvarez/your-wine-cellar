@@ -10,16 +10,29 @@ function required(name: string): string {
   return value;
 }
 
-const googleClientIds = (process.env.GOOGLE_CLIENT_IDS ?? '')
-  .split(',')
-  .map((id) => id.trim())
-  .filter(Boolean);
+function list(name: string) {
+  return (process.env[name] ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+const nodeEnv = process.env.NODE_ENV?.trim() || 'development';
+const jwtAccessSecret = required('JWT_ACCESS_SECRET');
+if (nodeEnv === 'production' && jwtAccessSecret.length < 32) {
+  throw new Error('JWT_ACCESS_SECRET debe tener al menos 32 caracteres en producción');
+}
+
+const googleClientIds = list('GOOGLE_CLIENT_IDS');
 
 export const env = {
+  nodeEnv,
   databaseUrl: required('DATABASE_URL'),
-  jwtAccessSecret: required('JWT_ACCESS_SECRET'),
+  jwtAccessSecret,
   googleClientIds,
   googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID?.trim() || googleClientIds[0] || '',
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET?.trim() || '',
+  googleRedirectUris: list('GOOGLE_REDIRECT_URIS'),
+  corsOrigins: list('CORS_ORIGINS'),
   port: Number(process.env.PORT ?? 3000),
 };

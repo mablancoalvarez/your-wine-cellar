@@ -1,6 +1,11 @@
 import { ensureCellars, issueTokens, toPublicUser } from '../auth.js';
 import { prisma } from '../db.js';
 
+if (process.env.NODE_ENV === 'production') {
+  console.error('dev:token no está disponible en producción');
+  process.exit(1);
+}
+
 const email = 'dev@cellar.local';
 
 try {

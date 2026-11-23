@@ -10,7 +10,14 @@ import { wineRoutes } from './routes/wines.js';
 
 const app = Fastify({ logger: true });
 
-await app.register(cors, { origin: true });
+await app.register(cors, {
+  origin:
+    env.corsOrigins.length > 0
+      ? env.corsOrigins
+      : env.nodeEnv === 'production'
+        ? false
+        : true,
+});
 await app.register(authRoutes);
 await app.register(cellarRoutes);
 await app.register(meRoutes);
